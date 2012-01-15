@@ -28,34 +28,42 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.filechooser.FileFilter;
-import mpq.ExtMpqArchive;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreePath;
 import mpq.MpqUtil;
 import mwt.wow.mpq.MpqFile;
 import wowimage.ConversionException;
 
 public class MpqTreePopupMenu extends JPopupMenu
 {
-    public MpqTreePopupMenu(MpqFile file)
+    private DefaultMutableTreeNode node;
+    private MpqTree mpqTree;
+    public MpqTreePopupMenu(MpqTree tree, DefaultMutableTreeNode node, boolean remove)
     {
-        showMpqFileMenu(file);
-    }
-    
-    public MpqTreePopupMenu(MpqTree tree)
-    {
-        showMpqArchiveFileMenu(tree);
+        this.node = node;
+        this.mpqTree = tree;
+        if(remove)
+        {
+            showMpqArchiveFileMenu();
+        }
+        else
+        {
+            showMpqFileMenu();
+        }
     }
 
-    private void showMpqFileMenu(MpqFile file)
+    private void showMpqFileMenu()
     {
-        this.add(createSaveAsItem(file));
+        this.add(createSaveAsItem());
     }
     
-    private void showMpqArchiveFileMenu(MpqTree tree)
+    private void showMpqArchiveFileMenu()
     {
-        this.add(createDeleteItem(tree));
+        this.add(createDeleteItem());
+        this.add(createSaveAsItem());
     }
     
-    private JMenuItem createDeleteItem(final MpqTree tree)
+    private JMenuItem createDeleteItem()
     {
         JMenuItem item = new JMenuItem("Remove");
         item.addActionListener(new ActionListener()
@@ -64,13 +72,13 @@ public class MpqTreePopupMenu extends JPopupMenu
             @Override
             public void actionPerformed(ActionEvent e)
             {
-                tree.removeSelectedArchives();
+                mpqTree.removeSelectedArchives();
             }
         });
         return item;
     }
 
-    private JMenuItem createSaveAsItem(final MpqFile file)
+    private JMenuItem createSaveAsItem()
     {
         JMenuItem item = new JMenuItem("Save as...");
         item.addActionListener(new ActionListener()
@@ -79,37 +87,52 @@ public class MpqTreePopupMenu extends JPopupMenu
             @Override
             public void actionPerformed(ActionEvent e)
             {
-                saveAs(file);
+                saveAs();
             }
         });
         return item;
     }
 
-    private void saveAs(MpqFile file)
+    private void saveAs()
     {
         while(true)
         {
-            JFileChooser chooser = createSaveChooser();
+            String toString = node.getUserObject().toString();
+            boolean endsWith = toString.endsWith(".blp");
+            boolean isDir = true;
+            if(node.isLeaf())
+            {
+                isDir = false;
+            }
+            JFileChooser chooser = createSaveChooser(endsWith, isDir);
             int showSaveDialog = chooser.showSaveDialog(null);
             if (showSaveDialog == JFileChooser.APPROVE_OPTION)
             {
                 File selectedFile = chooser.getSelectedFile();
                 String path = selectedFile.getAbsolutePath();
                 String extension = findExtension(chooser);
+                if(extension.length() == 0 && isDir == false)
+                {
+                    String[] split = toString.split("\\.");
+                    if(split.length > 1)
+                    {
+                        extension = "." + split[1];
+                    }
+                }
                 if (!path.endsWith(extension))
                 {
                     selectedFile = new File(path + extension);
                 }
                 // JOptionPane.CANCEL_OPTION = -1,JOptionPane.NO_OPTION = 0; JOptionPane.YES_OPTION = 1
                 int handleFileExists = 1;
-                if(selectedFile.exists())
+                if(selectedFile.exists() && isDir == false)
                 {
                     handleFileExists = handleFileExists();
                 }
                 if(handleFileExists == -1)return;
                 if(handleFileExists == 1)
-                {
-                    saveFile(selectedFile, file);
+                {   
+                    saveFile(selectedFile);
                     break;
                 }
             }
@@ -120,22 +143,39 @@ public class MpqTreePopupMenu extends JPopupMenu
         }
     }
     
-    private void saveFile(File selectedFile, MpqFile file)
+    private void saveFile(File selectedFile)
     {
+        
         String absolutePath = selectedFile.getAbsolutePath();
         int lastIndexOf = absolutePath.lastIndexOf(".");
         if (lastIndexOf != -1)
         {
             try
             {
-                String suffix = absolutePath.substring(lastIndexOf + 1, absolutePath.length());
-                if(suffix.toLowerCase().equals("blp"))
+                TreePath path1 = MpqTreeUtil.getPath(node);
+                MpqFile file = mpqTree.getMqpFileOfPath(path1);
+                if(file == null)
                 {
-                    file.extractTo(selectedFile);
+                    MpqTreeUtil.exportNode(node, selectedFile, mpqTree);
                 }
                 else
                 {
-                    ImageIO.write(MpqUtil.convertMpqFileToImage(file), suffix, selectedFile);
+                    if(file.getFilePath().endsWith("blp"))
+                    {
+                        String suffix = absolutePath.substring(lastIndexOf + 1, absolutePath.length());
+                        if(suffix.toLowerCase().equals("blp"))
+                        {
+                            file.extractTo(selectedFile);
+                        }
+                        else
+                        {
+                            ImageIO.write(MpqUtil.convertMpqFileToImage(file), suffix, selectedFile);
+                        }
+                    }
+                    else
+                    {
+                        file.extractTo(selectedFile);
+                    }
                 }
             } catch (ConversionException ex)
             {
@@ -152,68 +192,81 @@ public class MpqTreePopupMenu extends JPopupMenu
         FileFilter filter = chooser.getFileFilter();
         FileFilter[] choosableFileFilters = chooser.getChoosableFileFilters();
         String extension = "";
-        if(choosableFileFilters[0] == filter)
+        if(choosableFileFilters.length >=2)
         {
-            extension = ".blp";
-        }
-        else
-        {
-            extension = ".png";
+            if(choosableFileFilters[0] == filter)
+            {
+                extension = ".blp";
+            }
+            else if((choosableFileFilters[1] == filter))
+            {
+                extension = ".png";
+            }
         }
         return extension;
     }
     
-    private JFileChooser createSaveChooser()
+    private JFileChooser createSaveChooser(boolean isImage, boolean isDir)
     {
         final JFileChooser chooser = new JFileChooser();
-        FileFilter blpFileFilter = new FileFilter()
+        if(isImage)
         {
-
-            @Override
-            public boolean accept(File f)
+            FileFilter blpFileFilter = new FileFilter()
             {
-                if (f.getAbsolutePath().toLowerCase().endsWith(".blp") || f.isDirectory())
+
+                @Override
+                public boolean accept(File f)
                 {
-                    return true;
+                    if (f.getAbsolutePath().toLowerCase().endsWith(".blp") || f.isDirectory())
+                    {
+                        return true;
+                    }
+                    return false;
                 }
-                return false;
-            }
 
-            @Override
-            public String getDescription()
-            {
-                return "Warcraft Skin File (.blp)";
-            }
-        };
-        FileFilter pngFileFilter = new FileFilter()
-        {
-
-            @Override
-            public boolean accept(File f)
-            {
-                if (f.getAbsolutePath().toLowerCase().endsWith(".png") || f.isDirectory())
+                @Override
+                public String getDescription()
                 {
-                    return true;
+                    return "Warcraft Skin File (.blp)";
                 }
-                return false;
-            }
-
-            @Override
-            public String getDescription()
+            };
+            FileFilter pngFileFilter = new FileFilter()
             {
-                return "Portable Network Graphic (.png)";
+
+                @Override
+                public boolean accept(File f)
+                {
+                    if (f.getAbsolutePath().toLowerCase().endsWith(".png") || f.isDirectory())
+                    {
+                        return true;
+                    }
+                    return false;
+                }
+
+                @Override
+                public String getDescription()
+                {
+                    return "Portable Network Graphic (.png)";
+                }
+            };
+            FileFilter[] newFilter = new FileFilter[]
+            {
+                blpFileFilter, pngFileFilter
+            };
+            for (FileFilter f : newFilter)
+            {
+                chooser.addChoosableFileFilter(f);
             }
-        };
-        FileFilter[] newFilter = new FileFilter[]
-        {
-            blpFileFilter, pngFileFilter
-        };
-        for (FileFilter f : newFilter)
-        {
-            chooser.addChoosableFileFilter(f);
         }
-        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        chooser.setAcceptAllFileFilterUsed(false);
+        if(isDir == false)
+        {
+            chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            chooser.setAcceptAllFileFilterUsed(false);
+        }
+        else
+        {
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        }
         return chooser;
     }
     

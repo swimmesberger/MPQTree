@@ -143,6 +143,7 @@ public class MpqTreeTransferHandler extends TransferHandler
     {
         JTree tree = (JTree) c;
         TreePath[] paths = tree.getSelectionPaths();
+        System.out.println("createTransferable");
         if (paths != null)
         {
             // Make up a node array of copies for transfer and
@@ -168,6 +169,7 @@ public class MpqTreeTransferHandler extends TransferHandler
                 }
             }
             DefaultMutableTreeNode[] nodes = myNodes.toArray(new DefaultMutableTreeNode[myNodes.size()]);
+            exportedFiles = null;
             return new NodesTransferable(nodes);
         }
         return null;
@@ -185,7 +187,7 @@ public class MpqTreeTransferHandler extends TransferHandler
     @Override
     protected void exportDone(JComponent source, Transferable data, int action)
     {
-        if (exportedFiles.isEmpty() == false)
+        if (exportedFiles != null && exportedFiles.isEmpty() == false)
         {
             // Remove nodes saved in nodesToRemove in createTransferable.
             for (int i = 0; i < exportedFiles.size(); i++)
@@ -251,95 +253,34 @@ public class MpqTreeTransferHandler extends TransferHandler
             {
                 throw new UnsupportedFlavorException(flavor);
             }
+            System.out.println("getTransferData");
+            if(exportedFiles == null)
+            {
+                exportNodes();
+            }
+            return exportedFiles;
+        }
+        
+        private void exportNodes()
+        {
             exportedFiles = new ArrayList<File>();
-                DefaultMutableTreeNode node = nodes[0];
+            System.out.println("exportNodes");
+            for (int i = 0; i < nodes.length; i++)
+            {
+                DefaultMutableTreeNode node = nodes[i];
                 try
                 {
-                    exportNode(node, false);
+                    File exportNode = MpqTreeUtil.exportNode(node, null, false, mpqTree);
+                    if(exportNode != null)
+                    {
+                        System.out.println(exportNode.getAbsolutePath());
+                        exportedFiles.add(exportNode);
+                    }
                 } catch (IOException ex)
                 {
                     Logger.getLogger(MpqTreeTransferHandler.class.getName()).log(Level.SEVERE, null, ex);
                 }
-//            for (int i = 0; i < nodes.length; i++)
-//            {
-//
-//            }
-            return exportedFiles;
-        }
-
-        private void exportNode(DefaultMutableTreeNode node, boolean isDir) throws IOException
-        {
-            if (node.getChildCount() == 0)
-            {
-                TreePath treePath = getPath(node);
-                Object[] path = treePath.getPath();
-                String dir = path[1].toString().replaceAll("\\W","");
-                for (int i = 2; i < path.length; i++)
-                {
-                    if ((i + 1) == path.length)
-                    {
-                        break;
-                    }
-                    dir = dir + File.separator + path[i].toString().replaceAll("\\W","");
-                }
-                File dirF = new File(dir);
-                dirF.mkdirs();
-                MpqFile mpqFileOfPath = mpqTree.getMqpFileOfPath(treePath);
-                File f = new File(dirF.getAbsolutePath() + File.separator + MpqUtil.getMpqFileName(mpqFileOfPath));
-                mpqFileOfPath.extractTo(f);
-                if(!isDir)
-                {
-                    System.out.println(f.getAbsolutePath());
-                    exportedFiles.add(f);
-                }
             }
-            else
-            {
-                exportDir(node, isDir);
-            }
-        }
-        
-        private void exportDir(DefaultMutableTreeNode node, boolean isDir) throws IOException
-        {
-            TreePath treePath = getPath(node);
-            Object[] path = treePath.getPath();
-            String dir = path[1].toString().replaceAll("\\W","");
-            for (int i = 2; i < path.length; i++)
-            {
-                if ((i + 1) == path.length)
-                {
-                    break;
-                }
-                dir = dir + File.separator + path[i].toString().replaceAll("\\W","");
-            }
-            File dirF = new File(dir);
-            dirF.mkdirs();
-            for (int i = 0; i < node.getChildCount(); i++)
-            {
-                exportNode((DefaultMutableTreeNode) node.getChildAt(i), true);
-            }
-            if(!isDir)
-            {
-                System.out.println(dirF.getAbsolutePath());
-                exportedFiles.add(dirF);
-            }
-        }
-
-        public TreePath getPath(DefaultMutableTreeNode treeNode)
-        {
-            List<Object> nodes = new ArrayList<Object>();
-            if (treeNode != null)
-            {
-                nodes.add(treeNode);
-                treeNode = (DefaultMutableTreeNode) treeNode.getParent();
-                while (treeNode != null)
-                {
-                    nodes.add(0, treeNode);
-                    treeNode = (DefaultMutableTreeNode) treeNode.getParent();
-                }
-            }
-
-            return nodes.isEmpty() ? null : new TreePath(nodes.toArray());
         }
 
         @Override

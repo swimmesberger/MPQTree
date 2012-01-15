@@ -106,25 +106,20 @@ public class MpqTree extends JTree
         }
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
         String toLowerCase = node.getUserObject().toString().toLowerCase();
-        if (toLowerCase.endsWith(".blp"))
+        if (toLowerCase.endsWith(".mpq"))
         {
             if (e.isPopupTrigger())
             {
-                try
-                {
-                    MpqTreePopupMenu menu = new MpqTreePopupMenu(getMqpFileOfPath(path));
-                    menu.show(e.getComponent(),
-                            e.getX(), e.getY());
-                } catch (IOException ex)
-                {
-                    Logger.getLogger(MpqTree.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                MpqTreePopupMenu menu = new MpqTreePopupMenu(this, node, true);
+                menu.show(e.getComponent(),
+                        e.getX(), e.getY());
             }
-        } else if (toLowerCase.endsWith(".mpq"))
+        } 
+        else
         {
             if (e.isPopupTrigger())
             {
-                MpqTreePopupMenu menu = new MpqTreePopupMenu(this);
+                MpqTreePopupMenu menu = new MpqTreePopupMenu(this, node, false);
                 menu.show(e.getComponent(),
                         e.getX(), e.getY());
             }
