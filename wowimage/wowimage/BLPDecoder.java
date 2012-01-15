@@ -35,26 +35,40 @@ public class BLPDecoder
     {
         vBLPDecoder(file);
     }
-
-    private void vBLPDecoder(File file)
-    throws ConversionException
+    
+    public BLPDecoder(InputStream stream, int size) throws ConversionException
     {
+        vBLPDecoder(stream, size);
+    }
 
+    private void vBLPDecoder(File file) throws ConversionException
+    {
         int i1 = (int) file.length();
-        byte abyte0[] = new byte[i1];
         try
         {
-            FileInputStream fileinputstream = new FileInputStream(file.getAbsoluteFile());
-            fileinputstream.read(abyte0);
-            fileinputstream.close();
-        } catch (IOException ioexception)
+            InputStream fileinputstream = new FileInputStream(file.getAbsoluteFile());
+            vBLPDecoder(fileinputstream, i1);
+        } catch (FileNotFoundException ex)
         {
             throw new ConversionException("Error reading " + file.getAbsoluteFile());
+        }
+    }
+    
+    private void vBLPDecoder(InputStream stream, int size) throws ConversionException
+    {
+        byte abyte0[] = new byte[size];
+        try
+        {
+            stream.read(abyte0);
+            stream.close();
+        } catch (IOException ioexception)
+        {
+            throw new ConversionException("Error reading\n" + ioexception.getMessage());
         }
         ArrayReader arrayreader = new ArrayReader(abyte0);
         if (arrayreader.readByte() != 66 || arrayreader.readByte() != 76 || arrayreader.readByte() != 80 || arrayreader.readByte() != 50)
         {
-            throw new ConversionException(file.getAbsoluteFile() + " is not a BLP2 file");
+            throw new ConversionException("Error reading\nFile is not a BLP2 file");
         }
         /*
         struct BLP2Header
