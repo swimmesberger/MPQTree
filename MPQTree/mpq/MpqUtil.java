@@ -19,10 +19,12 @@ package mpq;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import mwt.wow.mpq.MpqFile;
+import org.apache.commons.io.IOUtils;
 import wowimage.BLPFile;
 import wowimage.ConversionException;
 
@@ -113,20 +115,36 @@ public class MpqUtil
   
     public static BufferedImage convertMpqFileToImage(MpqFile file) throws ConversionException, IOException
     {
-        File createTempFile = File.createTempFile(getMpqFileName(file), null);
-        file.extractTo(createTempFile);
-        BufferedImage convertFileToImage = convertFileToImage(createTempFile);
-        boolean delete = createTempFile.delete();
-        if(delete == false)
-        {
-            createTempFile.deleteOnExit();
-        }
+//        File createTempFile = File.createTempFile(getMpqFileName(file), null);
+//        file.extractTo(createTempFile);
+        BufferedImage convertFileToImage = convertFileToImage(file);
+//        boolean delete = createTempFile.delete();
+//        if(delete == false)
+//        {
+//            createTempFile.deleteOnExit();
+//        }
         return convertFileToImage;
+    }
+    
+    public static String convertMpqFileToString(MpqFile file) throws IOException
+    {
+        if(file == null)return null;
+        StringWriter writer = new StringWriter();
+        IOUtils.copy(file.getInputStream(), writer);
+        String theString = writer.toString();
+        return theString;
     }
     
     public static BufferedImage convertFileToImage(File file) throws ConversionException, IOException
     {
         BLPFile blpFile = new BLPFile(file);
+        BufferedImage img = blpFile.getImg();
+        return img;
+    }
+    
+    public static BufferedImage convertFileToImage(MpqFile file) throws ConversionException, IOException
+    {
+        BLPFile blpFile = new BLPFile(file.getInputStream(), (int)file.getFileSize());
         BufferedImage img = blpFile.getImg();
         return img;
     }

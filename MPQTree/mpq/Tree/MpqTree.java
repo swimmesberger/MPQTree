@@ -16,18 +16,19 @@
  */
 package mpq.Tree;
 
+import java.awt.Desktop;
 import java.awt.GridLayout;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.DropMode;
@@ -35,11 +36,13 @@ import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.WindowConstants;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 import mpq.ExtMpqArchive;
@@ -161,6 +164,61 @@ public class MpqTree extends JTree
             {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(this, "This file cant be opened ! (Reason: unknown)");
+            }
+        }
+        else
+        {
+            try
+            {
+                final MpqFile file = getMqpFileOfPath(path);
+                if(file == null)return;
+                if(file.getFileSize() > 1140615)
+                {
+                    if (Desktop.isDesktopSupported()) 
+                    {
+                        File createTempFile = File.createTempFile(MpqUtil.getMpqFileName(file), null);
+                        file.extractTo(createTempFile);
+                        Desktop.getDesktop().edit(createTempFile);
+                        return;
+                    }
+                }
+                final JFrame frame = new JFrame();
+                frame.setTitle("TextViewer");
+                frame.setLayout(new GridLayout(1, 1));
+                final JTextArea jTextArea = new JTextArea();
+                jTextArea.setText("Loading...");
+                jTextArea.setEditable(false);
+                JScrollPane scrollpane = new JScrollPane(jTextArea);
+                frame.add(scrollpane);
+                new Thread()
+                {
+                    @Override
+                    public void run()
+                    {
+                        try
+                        {
+                            String convertMpqFileToString = MpqUtil.convertMpqFileToString(file);
+                            if(convertMpqFileToString != null)
+                            {
+                                jTextArea.setText(convertMpqFileToString);
+                            }
+                            else
+                            {
+                                frame.dispose();
+                            }
+                        } catch (IOException ex)
+                        {
+                            Logger.getLogger(MpqTree.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                }.start();
+
+                frame.setSize(600, 800);
+                frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+                frame.setVisible(true);
+            } catch (IOException ex)
+            {
+                Logger.getLogger(MpqTree.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
