@@ -16,14 +16,12 @@
  */
 package test;
 
-import java.util.List;
 import mpq.Tree.MpqTree;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.WindowConstants;
 import mpq.ExtMpqArchive;
